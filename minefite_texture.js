@@ -19,6 +19,10 @@ function canvas(width, height) {
 	return value;
 }
 
+function alignTextureSize(value) {
+	return Math.max(16, Math.ceil(value / 16) * 16);
+}
+
 function setVector2(vector, x, y) {
 	if (vector?.V2_set) {
 		vector.V2_set(x, y);
@@ -493,10 +497,7 @@ function packWidth(items, width) {
 			y: used.y
 		});
 
-		free = prune(
-			free.flatMap(rect => splitFree(rect, used))
-		);
-
+		free = prune(free.flatMap(rect => splitFree(rect, used)));
 		usedWidth = Math.max(usedWidth, used.x + used.w);
 		usedHeight = Math.max(usedHeight, used.y + used.h);
 	}
@@ -517,16 +518,10 @@ function bestPacking(items, preferredWidth) {
 		minWidth,
 		maxWidth,
 		Math.min(maxWidth, Math.max(minWidth, preferredWidth)),
-		Math.min(
-			maxWidth,
-			Math.max(minWidth, Math.ceil(Math.sqrt(totalArea)))
-		)
+		Math.min(maxWidth, Math.max(minWidth, Math.ceil(Math.sqrt(totalArea))))
 	]);
 
-	const step = Math.max(
-		1,
-		Math.ceil((maxWidth - minWidth) / 512)
-	);
+	const step = Math.max(1, Math.ceil((maxWidth - minWidth) / 512));
 
 	for (let width = minWidth; width <= maxWidth; width += step) {
 		candidates.add(width);
@@ -542,16 +537,10 @@ function bestPacking(items, preferredWidth) {
 		}
 
 		const area = result.width * result.height;
-		const balance = Math.abs(
-			Math.log(result.width / Math.max(1, result.height))
-		);
+		const balance = Math.abs(Math.log(result.width / Math.max(1, result.height)));
 		const score = area * (1 + balance * 0.05);
 
-		if (
-			!best ||
-			score < best.score ||
-			(score === best.score && area < best.area)
-		) {
+		if (!best || score < best.score || (score === best.score && area < best.area)) {
 			best = {
 				...result,
 				score,
@@ -575,14 +564,10 @@ function preserveAspect(layout, ratio) {
 	};
 
 	const candidates = [byWidth, byHeight].filter(
-		size =>
-			size.width >= layout.width &&
-			size.height >= layout.height
+		size => size.width >= layout.width && size.height >= layout.height
 	);
 
-	return candidates.sort(
-		(a, b) => a.width * a.height - b.width * b.height
-	)[0];
+	return candidates.sort((a, b) => a.width * a.height - b.width * b.height)[0];
 }
 
 function repack(source, itemList, layout, width, height) {
@@ -610,14 +595,7 @@ function repack(source, itemList, layout, width, height) {
 	return target;
 }
 
-function transformUV(
-	value,
-	oldPixels,
-	oldUV,
-	offset,
-	newPixels,
-	newUV
-) {
+function transformUV(value, oldPixels, oldUV, offset, newPixels, newUV) {
 	return (
 		(value * oldPixels / oldUV + offset) *
 		newUV /
@@ -729,10 +707,7 @@ function refresh(texture, elements) {
 	updateInterfacePanels?.();
 	BARS.updateConditions?.();
 
-	setTimeout(
-		() => updateSelection?.(),
-		50
-	);
+	setTimeout(() => updateSelection?.(), 50);
 }
 
 function run() {
@@ -746,11 +721,8 @@ function run() {
 		return fail('Анимированные текстуры не поддерживаются');
 	}
 
-	if (
-		texture.layers_enabled &&
-		texture.layers.some(layer => layer.in_limbo)
-	) {
-		return fail('Заверши активное преобразование слоя');
+	if (texture.layers_enabled && texture.layers.some(layer => layer.in_limbo)) {
+		return fail('Завершите активное преобразование слоя');
 	}
 
 	const info = {
@@ -772,9 +744,7 @@ function run() {
 		data = analyze(texture, info);
 
 		if (!data.primitives.length) {
-			throw new Error(
-				'Выбранная текстура не используется моделью'
-			);
+			throw new Error('Выбранная текстура не используется моделью');
 		}
 
 		itemList = islands(data.primitives);
@@ -805,14 +775,14 @@ function run() {
 	let newHeight = layout.height;
 
 	if (!resizeUVSpace) {
-		const size = preserveAspect(
-			layout,
-			info.uvWidth / info.uvHeight
-		);
-
+		const size = preserveAspect(layout, info.uvWidth / info.uvHeight);
 		newWidth = size.width;
 		newHeight = size.height;
 	}
+
+	const textureSize = alignTextureSize(Math.max(newWidth, newHeight));
+    newWidth = textureSize;
+    newHeight = textureSize;
 
 	const newUVWidth = resizeUVSpace
 		? info.uvWidth * newWidth / info.width
@@ -833,10 +803,7 @@ function run() {
 		)
 	}));
 
-	const changesProjectUV =
-		resizeUVSpace &&
-		!Format.per_texture_uv_size;
-
+	const changesProjectUV = resizeUVSpace && !Format.per_texture_uv_size;
 	let editing = false;
 
 	try {
@@ -923,33 +890,29 @@ Plugin.register('minefite_texture', {
 	title: 'MinefiteTexture',
 	author: 'soul1se',
 	icon: 'view_compact',
-	description: 'Специально для проекта Minefite',
-	version: '0.0.1',
+	description: 'Специально для проекта Minefite RP',
+	version: '0.0.2',
 	min_version: '4.9.0',
 	variant: 'both',
 
 	onload() {
 		action = new Action('minefite_texture_uv', {
 			name: 'Оптимизация текстуры',
+			description: 'Очистить текстуру, перепаковать UV и оптимизировать разрешение',
 			icon: 'view_compact',
 			category: 'textures',
-			condition: {
-				modes: ['paint', 'edit'],
-				features: ['edit_mode'],
-				method: () => Boolean(Texture.selected)
-			},
+			condition: () => Boolean(Texture.selected),
 			click: run
 		});
 
-		if (MenuBar.menus.image) {
-			MenuBar.menus.image.addAction(action, '#transform');
-		} else {
-			MenuBar.menus.tools.addAction(action);
-		}
+		const menu = MenuBar.menus.image || MenuBar.menus.tools;
+		menu.addAction(action);
 	},
 
 	onunload() {
-		action?.delete();
-		action = null;
+		if (action) {
+			action.delete();
+			action = null;
+		}
 	}
 });
